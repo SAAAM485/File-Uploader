@@ -1,3 +1,6 @@
+# Prisma
+generated/prisma/
+
 # Logs
 logs
 *.log
