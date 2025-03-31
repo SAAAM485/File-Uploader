@@ -30,17 +30,23 @@ model Session {
 }
 
 model Folder {
-  id       Int      @id @default(autoincrement())
-  name     String
-  userId   Int
-  user     User     @relation(fields: [userId], references: [id])
-  files    File[]
+  id          Int      @id @default(autoincrement())
+  name        String
+  slug        String   @unique // URL-friendly 唯一名稱
+  userId      Int
+  parentId    Int?     // 父資料夾 ID，根目錄的父資料夾為 null
+  user        User     @relation(fields: [userId], references: [id])
+  parent      Folder?  @relation("FolderToSubfolders", fields: [parentId], references: [id]) // 父資料夾
+  subfolders  Folder[] @relation("FolderToSubfolders") // 子資料夾關聯
+  files       File[]   // 資料夾內的檔案
 }
+
 
 model File {
   id       Int      @id @default(autoincrement())
   name     String
   path     String
   folderId Int
-  folder   Folder   @relation(fields: [folderId], references: [id])
+  folder   Folder   @relation(fields: [folderId], references: [id], onDelete: Cascade)
 }
+
