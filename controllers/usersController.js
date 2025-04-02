@@ -53,17 +53,25 @@ async function userFolderDelete(req, res) {
 }
 
 async function foldersFileGet(req, res) {
-    const folderId = req.body.id;
+    const folderId = req.body.id; // 取得資料夾 ID
     try {
-        const files = await db.getFolderFiles(folderId);
+        // 呼叫擴展的方法來取得檔案及子資料夾
+        const { files, subfolders } = await db.getFolderFilesAndSubfolders(
+            folderId
+        );
+
+        // 傳遞檔案和子資料夾給 EJS
         res.render("mainBoard", {
-            view: files,
-            title: req.username,
-            isAuthenticated: req.isAuthenticated(),
+            view: {
+                files,
+                subfolders,
+            },
+            title: req.username, // 例如顯示使用者名稱
+            isAuthenticated: req.isAuthenticated(), // 判斷是否已登入
         });
     } catch (error) {
-        console.error("Error fetching files data:", error);
-        res.status(500).send("Error fetching files data.");
+        console.error("Error fetching files and folders data:", error);
+        res.status(500).send("Error fetching files and folders data.");
     }
 }
 
@@ -73,13 +81,20 @@ async function folderFilePost(req, res) {
         return res.status(400).json({ errors: errors.array() });
     }
 
+    // 確認檔案是否已被上傳
+    if (!req.file) {
+        return res.status(400).send("No file uploaded.");
+    }
+
+    // 從 multer 提供的 req.file 中獲取檔案資訊
     const file = {
-        folderId: req.body.folderId,
-        name: req.body.name,
-        path: req.body.path,
+        folderId: req.body.folderId, // 從表單中獲取 folderId
+        name: req.file.originalname, // 檔案的原始名稱
+        path: req.file.path, // 檔案的存儲路徑
     };
 
     try {
+        // 將檔案資訊存入資料庫
         await db.createFolderFile(file);
         res.redirect("/");
     } catch (error) {
@@ -134,3 +149,15 @@ async function signUpPost(req, res) {
 async function signInGet(req, res) {
     res.render("signForm", { title: "Sign In" });
 }
+
+module.exports = {
+    userFoldersGet,
+    userFolderPost,
+    userFolderDelete,
+    foldersFileGet,
+    folderFilePost,
+    folderFileDelete,
+    signUpGet,
+    signUpPost,
+    signInGet,
+};

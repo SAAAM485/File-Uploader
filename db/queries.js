@@ -9,7 +9,7 @@ async function createUser(user) {
     try {
         await prisma.user.create({
             data: {
-                username: user.username,
+                username: user.username.trim(),
                 password: user.password,
             },
         });
@@ -33,23 +33,31 @@ async function getUserFolders(userId) {
     }
 }
 
+async function generateUniqueFolderSlug(name) {
+    const slug = name.toLowerCase().replace(/\s+/g, "-");
+    const existingFolder = await prisma.folder.findUnique({ where: { slug } });
+    if (existingFolder) {
+        throw new Error("Folder name already exists.");
+    }
+    return slug;
+}
+
+async function generateUniqueFileSlug(name) {
+    const slug = name.toLowerCase().replace(/\s+/g, "-");
+    const existingFile = await prisma.file.findUnique({ where: { slug } });
+    if (existingFile) {
+        throw new Error("File name already exists.");
+    }
+    return slug;
+}
+
 async function createUserFolder(folder) {
     try {
         if (!folder.userId || !folder.name) {
             throw new Error("Invalid parameters: userId and name are required");
         }
 
-        const slug = folder.name.toLowerCase().replace(/\s+/g, "-"); // 將空格轉為短橫線
-
-        // 確保 slug 唯一
-        const existingFolder = await prisma.folder.findUnique({
-            where: { slug },
-        });
-        if (existingFolder) {
-            throw new Error(
-                "Folder name already exists. Please choose another name."
-            );
-        }
+        const slug = generateUniqueFolderSlug(folder.name);
 
         return await prisma.folder.create({
             data: {
@@ -114,11 +122,33 @@ async function getFolderFiles(folderId) {
             where: {
                 folderId: folderId,
             },
+            select: {
+                id: true,
+                name: true,
+                path: true,
+            },
         });
-        return files;
+
+        const subfolders = await prisma.folder.findMany({
+            where: {
+                parentId: folderId,
+            },
+            select: {
+                id: true,
+                name: true,
+            },
+        });
+
+        // 標記每種資料類型
+        const contents = [
+            ...subfolders.map((folder) => ({ ...folder, type: "folder" })),
+            ...files.map((file) => ({ ...file, type: "file" })),
+        ];
+
+        return contents;
     } catch (error) {
-        console.error("Error fetching folder files:", error);
-        throw new Error("Failed to fetch files");
+        console.error("Error fetching folder contents:", error);
+        throw new Error("Failed to fetch folder contents");
     }
 }
 
@@ -129,6 +159,8 @@ async function createFolderFile(file) {
                 "Invalid parameters: folderId, name and path are required"
             );
         }
+
+        const slug = generateUniqueFileSlug(file.name);
 
         // 確認檔案的目標資料夾是否有父資料夾（不是根目錄）
         const folder = await prisma.folder.findUnique({
@@ -142,6 +174,7 @@ async function createFolderFile(file) {
         return await prisma.file.create({
             data: {
                 name: file.name,
+                slug: slug,
                 path: file.path,
                 folderId: file.folderId,
             },

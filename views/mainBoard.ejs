@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title><%= title %></title>
+    </head>
+    <body>
+        <h1>Welcome, <%= title %></h1>
+
+        <!-- 顯示子資料夾 -->
+        <h2>Subfolders:</h2>
+        <ul>
+            <% if (view.subfolders.length > 0) { %> <%
+            view.subfolders.forEach(folder => { %>
+            <li><%= folder.name %></li>
+            <% }) %> <% } else { %>
+            <p>No subfolders available.</p>
+            <% } %>
+        </ul>
+
+        <!-- 顯示檔案 -->
+        <h2>Files:</h2>
+        <ul>
+            <% if (view.files.length > 0) { %> <% view.files.forEach(file => {
+            %>
+            <li><%= file.name %></li>
+            <% }) %> <% } else { %>
+            <p>No files available.</p>
+            <% } %>
+        </ul>
+    </body>
+</html>
