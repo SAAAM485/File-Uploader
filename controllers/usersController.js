@@ -4,10 +4,10 @@ const { validationResult } = require("express-validator");
 
 async function userFoldersGet(req, res) {
     try {
-        const folders = await db.getUserFolders(req.id);
+        const folders = await db.getUserFolders(req.user.id);
         res.render("mainBoard", {
             view: folders,
-            title: req.username,
+            title: req.user.username,
             isAuthenticated: req.isAuthenticated(),
         });
     } catch (error) {
@@ -23,7 +23,7 @@ async function userFolderPost(req, res) {
     }
 
     const folder = {
-        userId: req.userId,
+        userId: req.user.id,
         name: req.body.name,
         parentId: req.body.folderId || null,
     };
@@ -39,7 +39,7 @@ async function userFolderPost(req, res) {
 
 async function userFolderDelete(req, res) {
     const folder = {
-        userId: req.id,
+        userId: req.user.id,
         folderId: req.body.folderId,
     };
 
@@ -66,7 +66,7 @@ async function foldersFileGet(req, res) {
                 files,
                 subfolders,
             },
-            title: req.username, // 例如顯示使用者名稱
+            title: req.user.username, // 例如顯示使用者名稱
             isAuthenticated: req.isAuthenticated(), // 判斷是否已登入
         });
     } catch (error) {
@@ -137,7 +137,6 @@ async function signUpPost(req, res) {
     }
 
     const hashedPw = await bcrypt.hash(req.body.password, 12);
-    const admin = req.body.admin === "bagel" ? true : false;
     const user = {
         username: req.body.username,
         password: hashedPw,
@@ -149,6 +148,18 @@ async function signUpPost(req, res) {
 async function signInGet(req, res) {
     res.render("signForm", { title: "Sign In" });
 }
+
+module.exports = {
+    userFoldersGet,
+    userFolderPost,
+    userFolderDelete,
+    foldersFileGet,
+    folderFilePost,
+    folderFileDelete,
+    signUpGet,
+    signUpPost,
+    signInGet,
+};
 
 module.exports = {
     userFoldersGet,
