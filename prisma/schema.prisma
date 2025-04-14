@@ -33,6 +33,7 @@ model Folder {
   id          Int      @id @default(autoincrement())
   name        String
   slug        String   @unique // URL-friendly 唯一名稱
+  path        String   @unique
   userId      Int
   parentId    Int?     // 父資料夾 ID，根目錄的父資料夾為 null
   user        User     @relation(fields: [userId], references: [id])
@@ -46,7 +47,8 @@ model File {
   id       Int      @id @default(autoincrement())
   name     String
   slug     String   @unique // URL-friendly 唯一名稱
-  path     String
+  path     String   @unique
+  filePath  String
   folderId Int
   folder   Folder   @relation(fields: [folderId], references: [id], onDelete: Cascade)
 }

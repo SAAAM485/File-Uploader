@@ -90,7 +90,7 @@ async function folderFilePost(req, res) {
     const file = {
         folderId: req.body.folderId, // 從表單中獲取 folderId
         name: req.file.originalname, // 檔案的原始名稱
-        path: req.file.path, // 檔案的存儲路徑
+        filePath: req.file.path, // 檔案的存儲路徑
     };
 
     try {

@@ -1,5 +1,14 @@
 const prisma = require("./client");
 
+async function generateUniqueSlug(name, model) {
+    const slug = name.toLowerCase().replace(/\s+/g, "-");
+    const existing = await prisma[model].findUnique({ where: { slug } });
+    if (existing) {
+        throw new Error(`${model} name already exists.`);
+    }
+    return slug;
+}
+
 async function createUser(user) {
     if (!user.username || !user.password) {
         throw new Error(
@@ -33,36 +42,20 @@ async function getUserFolders(userId) {
     }
 }
 
-async function generateUniqueFolderSlug(name) {
-    const slug = name.toLowerCase().replace(/\s+/g, "-");
-    const existingFolder = await prisma.folder.findUnique({ where: { slug } });
-    if (existingFolder) {
-        throw new Error("Folder name already exists.");
-    }
-    return slug;
-}
-
-async function generateUniqueFileSlug(name) {
-    const slug = name.toLowerCase().replace(/\s+/g, "-");
-    const existingFile = await prisma.file.findUnique({ where: { slug } });
-    if (existingFile) {
-        throw new Error("File name already exists.");
-    }
-    return slug;
-}
-
 async function createUserFolder(folder) {
     try {
         if (!folder.userId || !folder.name) {
             throw new Error("Invalid parameters: userId and name are required");
         }
 
-        const slug = generateUniqueFolderSlug(folder.name);
+        const slug = generateUniqueSlug(folder.name, "folder");
+        const parentFolder = await getFolder(folder.parentId);
 
         return await prisma.folder.create({
             data: {
                 name: folder.name,
                 slug: slug,
+                path: `${parentFolder.path}/${folder.name}`,
                 userId: folder.userId,
                 parentId: folder.parentId || null, // 設定父資料夾 ID，根目錄為 null
             },
@@ -160,7 +153,7 @@ async function createFolderFile(file) {
             );
         }
 
-        const slug = generateUniqueFileSlug(file.name);
+        const slug = generateUniqueSlug(file.name, "file");
 
         // 確認檔案的目標資料夾是否有父資料夾（不是根目錄）
         const folder = await prisma.folder.findUnique({
@@ -175,7 +168,8 @@ async function createFolderFile(file) {
             data: {
                 name: file.name,
                 slug: slug,
-                path: file.path,
+                path: `${folder.path}/${file.name}`,
+                filePath: file.path,
                 folderId: file.folderId,
             },
         });
@@ -205,7 +199,7 @@ async function deleteFolderFile(deleteFile) {
 
         return { message: "File deleted successfully" };
     } catch (error) {
-        console.error(`Error deleting fileId ${fileId}:`, error);
+        console.error(`Error deleting fileId ${deleteFile.fileId}:`, error);
         throw new Error(`Failed to delete file with ID: ${fileId}`);
     }
 }
