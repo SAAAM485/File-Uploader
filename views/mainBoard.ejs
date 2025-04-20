@@ -1,10 +1,23 @@
 <!DOCTYPE html>
 <html lang="en">
     <head>
-        <title><%= title %></title>
+        <title><%= title || "Please Login" %></title>
     </head>
     <body>
-        <h1>Welcome, <%= title %></h1>
+        <nav>
+            <ul>
+                <% if (isAuthenticated) { %>
+                <li><a href="">Create a Folder</a></li>
+                <li><a href="">Upload a File</a></li>
+                <li><a href="/log-out">Log Out</a></li>
+                <% } else { %>
+                <li><a href="/sign-in">Sign In</a></li>
+                <li><a href="/sign-up">Sign Up</a></li>
+                <% } %>
+            </ul>
+        </nav>
+        <h1>Welcome, <%= title || "Please Sign In" %></h1>
+        <% if(isAuthenticate) { %>
 
         <!-- 顯示子資料夾 -->
         <h2>Subfolders:</h2>
@@ -27,5 +40,6 @@
             <p>No files available.</p>
             <% } %>
         </ul>
+        <% } %>
     </body>
 </html>

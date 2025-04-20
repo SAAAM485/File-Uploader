@@ -36,7 +36,7 @@ passport.deserializeUser(async (id, done) => {
     done(null, user);
 });
 
-router.post("/register", async (req, res) => {
+router.post("/sign-up", async (req, res) => {
     try {
         const { username, password } = req.body;
         const hashedPassword = await bcrypt.hash(password, 10);
@@ -51,7 +51,7 @@ router.post("/register", async (req, res) => {
     }
 });
 
-router.post("/login", passport.authenticate("local"), (req, res) => {
+router.post("/sign-in", passport.authenticate("local"), (req, res) => {
     res.json({ message: "Logged in successfully", user: req.user });
 });
 router.get("/log-out", (req, res, next) => {
