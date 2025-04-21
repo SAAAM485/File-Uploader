@@ -1,15 +1,13 @@
-const prisma = require("../src/db/client");
+require("dotenv").config();
+const prisma = require("../db/client");
 
 async function main() {
     console.log("Seeding...");
 
-    await prisma.members.create({
+    await prisma.user.create({
         data: {
-            firstName: "John",
-            lastName: "Doe",
-            username: "johndoe",
-            password: "hashed_password",
-            admin: true,
+            username: "bagel",
+            password: "qwas1212",
         },
     });
 
