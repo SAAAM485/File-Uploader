@@ -5,31 +5,35 @@
         <title><%= title %> - Folder Contents</title>
     </head>
     <body>
-        <% if (isRoot) { %>
+        <% if (!isAuthenticated) { %>
+        <h2>Welcome to the File Uploader</h2>
+        <p>
+            Please <a href="/sign-in">Sign In</a> or
+            <a href="/sign-up">Sign Up</a> to Manage Your Files.
+        </p>
+        <% } else { %> <% if (isRoot) { %>
         <!-- 根目錄頁面 -->
         <h2>My Space</h2>
         <ul>
             <% view.forEach(function(item) { %>
             <li>
-                <!-- 使用 encodeURIComponent 產生正確 URL -->
                 <a href="/folders/<%= encodeURIComponent(item.path) %>">
                     <%= item.name %>
                 </a>
             </li>
             <% }); %>
         </ul>
-        <!-- 建立新資料夾的表單 (根目錄下) -->
+        <!-- 建立新資料夾的表單 -->
         <h3>Create a Folder</h3>
         <form action="/folders" method="post">
             <input
                 type="text"
                 name="name"
-                placeholder="新資料夾名稱"
+                placeholder="New Folder's Name"
                 required
             />
-            <!-- 根目錄的 parentId 由前端自行定義，例如傳 "/" 或空值 -->
             <input type="hidden" name="folderId" value="/" />
-            <button type="submit">建立資料夾</button>
+            <button type="submit">Create</button>
         </form>
         <% } else { %>
         <!-- 子資料夾頁面 -->
@@ -45,12 +49,11 @@
                     [Folder] <%= item.name %>
                 </a>
                 <% } else { %> [File] <%= item.name %>
-                <a href="/download/<%= item.id %>">下載</a>
+                <a href="/download/<%= item.id %>">Download</a>
                 <% } %>
             </li>
             <% }); %>
         </ul>
-
         <!-- 上傳檔案表單 -->
         <h3>Upload a File</h3>
         <form
@@ -68,15 +71,14 @@
             <input
                 type="text"
                 name="name"
-                placeholder="新子資料夾名稱"
+                placeholder="New Folder's Name"
                 required
             />
             <input type="hidden" name="folderId" value="<%= folder.id %>" />
             <button type="submit">Create</button>
         </form>
 
-        <!-- 返回上一層或根目錄的連結 -->
         <p><a href="/folders">Back to Home</a></p>
-        <% } %>
+        <% } %> <% } %>
     </body>
 </html>

@@ -17,7 +17,7 @@
         <% } %>
 
         <form
-            action="<%= title === 'Sign Up' ? '/signup' : '/signin' %>"
+            action="<%= title === 'Sign Up' ? '/sign-up' : '/sign-in' %>"
             method="post"
         >
             <div>
@@ -32,9 +32,9 @@
         </form>
 
         <% if (title === 'Sign Up') { %>
-        <p>Already Have an Account? <a href="/signin">Sign In</a></p>
+        <p>Already Have an Account? <a href="/sign-in">Sign In</a></p>
         <% } else { %>
-        <p>Don't Have an Account? <a href="/signup">Sign Up</a></p>
+        <p>Don't Have an Account? <a href="/sign-up">Sign Up</a></p>
         <% } %>
     </body>
 </html>

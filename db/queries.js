@@ -33,6 +33,7 @@ async function getUserFolders(userId) {
         const folders = await prisma.folder.findMany({
             where: {
                 userId: userId,
+                parentId: null,
             },
         });
         return folders;
@@ -41,27 +42,46 @@ async function getUserFolders(userId) {
         throw new Error("Failed to fetch folders");
     }
 }
-
-async function createUserFolder(folder) {
+async function createUserFolder(folderData) {
     try {
-        if (!folder.userId || !folder.name) {
-            throw new Error("Invalid parameters: userId and name are required");
+        let newFolderPath = "";
+
+        console.log("createUserFolder(): folderData received:", folderData);
+
+        if (!folderData.parentId) {
+            // 表示在根目錄下建立資料夾
+            newFolderPath = folderData.name;
+        } else {
+            // 有 parentId 時，先嘗試取得父資料夾
+            const parentFolder = await getFolder(folderData.parentId);
+            if (!parentFolder) {
+                // 父資料夾不存在，除非你希望丟出錯誤，否則可以選擇視同根目錄
+                console.warn(
+                    "Parent folder with id",
+                    folderData.parentId,
+                    "not found. Treating as root folder."
+                );
+                newFolderPath = folderData.name;
+                // 或則選擇直接拋出錯誤：
+                // throw new Error("Parent folder not found");
+            } else {
+                // 使用父資料夾的 path 組合新的路徑
+                newFolderPath = `${parentFolder.path}/${folderData.name}`;
+            }
         }
+        const slug = await generateUniqueSlug(folderData.name, "folder");
+        folderData.slug = slug;
+        folderData.path = newFolderPath;
+        console.log("Computed new folder path:", newFolderPath);
 
-        const slug = generateUniqueSlug(folder.name, "folder");
-        const parentFolder = await getFolder(folder.parentId);
-
-        return await prisma.folder.create({
-            data: {
-                name: folder.name,
-                slug: slug,
-                path: `${parentFolder.path}/${folder.name}`,
-                userId: folder.userId,
-                parentId: folder.parentId || null, // 設定父資料夾 ID，根目錄為 null
-            },
+        // 執行建立資料夾
+        const newFolder = await prisma.folder.create({
+            data: folderData,
         });
+
+        return newFolder;
     } catch (error) {
-        console.error("Error creating user folder:", error);
+        console.error("Error in createUserFolder:", error);
         throw new Error("Failed to create folder");
     }
 }
@@ -96,6 +116,9 @@ async function deleteUserFolder(deleteFolder) {
 }
 
 async function getFolder(folderId) {
+    if (folderId === null) {
+        return null;
+    }
     try {
         const folder = await prisma.folder.findUnique({
             where: {
@@ -106,6 +129,17 @@ async function getFolder(folderId) {
     } catch (error) {
         console.error("Error fetching folder:", error);
         throw new Error("Failed to fetch the folder");
+    }
+}
+
+async function getFolderByPath(path) {
+    try {
+        return await prisma.folder.findUnique({
+            where: { path: path },
+        });
+    } catch (error) {
+        console.error("Error fetching folder by path:", error);
+        throw new Error("Failed to fetch folder by path");
     }
 }
 
@@ -210,6 +244,7 @@ module.exports = {
     createUserFolder,
     deleteUserFolder,
     getFolder,
+    getFolderByPath,
     getFolderFiles,
     createFolderFile,
     deleteFolderFile,

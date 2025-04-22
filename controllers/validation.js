@@ -54,4 +54,9 @@ const validateFile = [
     body("path").trim().notEmpty().withMessage("File path is required"),
 ];
 
-module.exports = { validateUser, validateFolder, validateFile };
+module.exports = {
+    validateSignUp,
+    validateSignIn,
+    validateFolder,
+    validateFile,
+};

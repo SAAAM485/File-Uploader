@@ -1,3 +1,4 @@
+// controllers/usersController.js
 const db = require("../db/queries");
 const prisma = require("../db/client");
 const bcrypt = require("bcryptjs");
@@ -6,65 +7,93 @@ const { validationResult } = require("express-validator");
 /* 
   ──────────────── 使用者與資料夾管理 ────────────────
 */
-
-// 新增使用者資料夾
 async function userFolderPost(req, res) {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
+        return res
+            .status(400)
+            .render("errorPage", { message: "Failed creating the folder." });
+    }
+
+    // 若前端未傳 folderId 或傳入 "/"，則視為根目錄
+    let parentId = null;
+    if (req.body.folderId && req.body.folderId !== "/") {
+        const parsedId = parseInt(req.body.folderId, 10);
+        if (!isNaN(parsedId)) {
+            parentId = parsedId;
+        }
     }
 
     const folder = {
         userId: req.user.id,
         name: req.body.name,
-        parentId: req.body.folderId || null,
+        parentId: parentId, // 當為根目錄時，這裡會是 null
     };
 
     try {
-        await db.createUserFolder(folder);
-        res.redirect("/");
+        const newFolder = await db.createUserFolder(folder);
+        // newFolder.path 已由 createUserFolder 組合好
+        res.redirect(`/folders/${encodeURIComponent(newFolder.path)}`);
     } catch (error) {
         console.error("Error creating folder:", error);
-        res.status(500).render("errorPage", { message: "資料夾建立失敗。" });
+        res.status(500).render("errorPage", {
+            message: "Failed creating the folder.",
+        });
     }
 }
 
-// 刪除使用者資料夾
 async function userFolderDelete(req, res) {
-    const folder = {
-        userId: req.user.id,
-        folderId: req.body.folderId,
-    };
-
+    const folderId = req.body.folderId;
     try {
-        await db.deleteUserFolder(folder);
-        res.redirect("/");
+        // 先取得該資料夾的資訊
+        const folder = await db.getFolder(folderId);
+        if (!folder) {
+            return res
+                .status(404)
+                .render("errorPage", { message: "Folder not found." });
+        }
+        // 此處你也可以檢查是否有權限刪除（例如 req.user.id 與 folder.userId 比較）
+        await db.deleteUserFolder({ folderId: folderId, userId: req.user.id });
+
+        // 決定刪除後導向的路徑：
+        // 若有父層，則導回父資料夾；若無（根目錄），則導向 /folders
+        let redirectPath = "/folders";
+        if (folder.parentId) {
+            const parentFolder = await db.getFolder(folder.parentId);
+            if (parentFolder) {
+                redirectPath = `/folders/${encodeURIComponent(
+                    parentFolder.path
+                )}`;
+            }
+        }
+        res.redirect(redirectPath);
     } catch (error) {
         console.error("Error deleting folder:", error);
-        res.status(500).render("errorPage", { message: "資料夾刪除失敗。" });
+        res.status(500).render("errorPage", {
+            message: "Failed deleting the folder.",
+        });
     }
 }
 
 /* 
   ──────────────── 檔案管理 ────────────────
 */
-
-// 上傳檔案 (包含多層路徑處理)
 async function uploadFile(req, res) {
     try {
+        // 使用萬用字元路由後，完整多層路徑存放在 req.params[0]
         const folderPath = req.params[0];
         const folder = await db.getFolderByPath(folderPath);
 
         if (!folder) {
             return res
                 .status(404)
-                .render("errorPage", { message: "資料夾未找到。" });
+                .render("errorPage", { message: "Cannot find the folder." });
         }
 
         if (!req.file) {
-            return res
-                .status(400)
-                .render("errorPage", { message: "未選擇上傳檔案。" });
+            return res.status(400).render("errorPage", {
+                message: "Did not choose the uploading file.",
+            });
         }
 
         const fileObj = {
@@ -73,18 +102,20 @@ async function uploadFile(req, res) {
             path: req.file.path,
         };
 
-        const newFile = await db.createFolderFile(fileObj);
+        await db.createFolderFile(fileObj);
 
-        res.redirect(`/folders/${folder.path}`);
+        res.redirect(`/folders/${encodeURIComponent(folder.path)}`);
     } catch (error) {
-        console.error("檔案上傳錯誤:", error);
-        res.status(500).render("errorPage", { message: "檔案上傳失敗。" });
+        console.error("Error uploading the file:", error);
+        res.status(500).render("errorPage", {
+            message: "Failed uploading the file.",
+        });
     }
 }
 
-// 刪除檔案 (依據多層路徑或檔案 ID)
 async function deleteFile(req, res) {
     try {
+        // 若路由有多層路徑，則使用 req.params[0]；否則檢查 req.body.folderId
         const folder = req.params[0]
             ? await db.getFolderByPath(req.params[0])
             : req.body.folderId
@@ -94,7 +125,7 @@ async function deleteFile(req, res) {
         if (!folder) {
             return res
                 .status(404)
-                .render("errorPage", { message: "資料夾未找到。" });
+                .render("errorPage", { message: "Cannot find the folder." });
         }
 
         const file = req.body.fileId
@@ -108,92 +139,84 @@ async function deleteFile(req, res) {
         if (!file) {
             return res
                 .status(404)
-                .render("errorPage", { message: "檔案未找到。" });
+                .render("errorPage", { message: "Cannot find the file." });
         }
 
         await db.deleteFolderFile({ fileId: file.id });
-        res.redirect(`/folders/${folder.path}`);
+        res.redirect(`/folders/${encodeURIComponent(folder.path)}`);
     } catch (error) {
-        console.error("刪除檔案錯誤:", error);
-        res.status(500).render("errorPage", { message: "檔案刪除失敗。" });
+        console.error("Error deleting the file:", error);
+        res.status(500).render("errorPage", {
+            message: "Failed deleting the file.",
+        });
     }
 }
 
 /* 
   ──────────────── 資料夾內容管理 ────────────────
 */
-
-// 取得資料夾內容 (支援根目錄、多層路徑及指定資料夾)
-// 取得資料夾內容 (支援根目錄、多層路徑及指定資料夾)
 async function getFolderContents(req, res) {
     try {
+        if (!req.isAuthenticated()) {
+            return res.render("mainBoard", {
+                title: "Welcome",
+                isAuthenticated: false,
+            });
+        }
+
         const userId = req.user.id;
         let folder,
             contents,
             isRoot = false;
 
+        // 使用多層萬用字元路由，若有 req.params[0] 表示有多層路徑
         if (req.params[0]) {
-            // 多層路徑情況
-            const rawFolderPath = req.params[0];
-            const folderPath = decodeURIComponent(rawFolderPath);
+            const folderPath = decodeURIComponent(req.params[0]);
             folder = await db.getFolderByPath(folderPath);
-
             if (!folder) {
-                return res
-                    .status(404)
-                    .render("errorPage", { message: "資料夾未找到。" });
-            }
-            contents = await db.getFolderFiles(folder.id);
-        } else if (req.body.folderId) {
-            // 從 body 傳入 folderId 的情況
-            folder = await db.getFolder(req.body.folderId);
-
-            if (!folder) {
-                return res
-                    .status(404)
-                    .render("errorPage", { message: "指定的資料夾不存在。" });
+                return res.status(404).render("errorPage", {
+                    message: "Cannot find the folder.",
+                });
             }
             contents = await db.getFolderFiles(folder.id);
         } else {
-            // 根目錄狀態
+            // 若無多層路徑，代表當前在 /folders (根目錄)
             isRoot = true;
             const folders = await db.getUserFolders(userId);
             return res.render("mainBoard", {
                 view: folders,
                 title: req.user.username,
-                isAuthenticated: req.isAuthenticated(),
-                folderPath: "/", // 根目錄路徑
-                isRoot: isRoot,
+                isAuthenticated: true,
+                folderPath: "/",
+                isRoot,
             });
         }
 
-        res.render("folderView", {
+        res.render("mainBoard", {
             folder: { id: folder.id, name: folder.name, path: folder.path },
             contents,
             title: folder.name,
             isAuthenticated: req.isAuthenticated(),
-            folderPath: folder.path, // 傳遞當前資料夾路徑
-            isRoot: isRoot, // 此時應該為 false
+            folderPath: folder.path,
+            isRoot,
         });
     } catch (error) {
-        console.error("取得資料夾內容錯誤:", error);
+        console.error("Error finding folder contents:", error);
         res.status(500).render("errorPage", {
-            message: "無法取得資料夾內容。",
+            message: "Cannot find the folder contents.",
         });
     }
 }
 
 async function downloadFile(req, res) {
     try {
-        // 取得檔案 ID，例如從 URL 參數中：/download/:fileId
         const fileId = req.params.fileId;
         if (!fileId) {
             return res
                 .status(400)
-                .render("errorPage", { message: "缺少檔案識別碼。" });
+                .render("errorPage", { message: "Missing file ID." });
         }
 
-        // 查詢資料庫以取得該檔案記錄
         const file = await prisma.file.findUnique({
             where: { id: fileId },
         });
@@ -201,39 +224,29 @@ async function downloadFile(req, res) {
         if (!file) {
             return res
                 .status(404)
-                .render("errorPage", { message: "檔案不存在。" });
+                .render("errorPage", { message: "File does not exist." });
         }
 
-        // 假設 file.filePath 儲存了 Cloudinary 的公開 URL
-        // 直接轉向該 URL，讓瀏覽器依據 Cloudinary 的設定下載檔案
         return res.redirect(file.filePath);
-
-        // --- 若要採用代理下載 (可選) ---
-        // 你可以使用 axios 或 node-fetch 去取得檔案內容，然後用下面的方式：
-        // res.attachment(file.name);
-        // res.send(fileContentStream);
     } catch (error) {
-        console.error("檔案下載錯誤:", error);
+        console.error("Error downloading the file:", error);
         return res
             .status(500)
-            .render("errorPage", { message: "檔案下載失敗。" });
+            .render("errorPage", { message: "Failed downloading the file." });
     }
 }
 
 /* 
   ──────────────── 使用者驗證 ────────────────
 */
-
-// 取得註冊頁面
 async function signUpGet(req, res) {
     res.render("signForm", { title: "Sign Up" });
 }
 
-// 進行註冊
 async function signUpPost(req, res) {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-        return res.status(400).render("form", {
+        return res.status(400).render("signForm", {
             title: "Sign Up",
             errorMessages: errors.array().map((err) => err.msg),
         });
@@ -246,10 +259,9 @@ async function signUpPost(req, res) {
     };
 
     await db.createUser(user);
-    res.redirect("/");
+    res.redirect("/folders");
 }
 
-// 取得登入頁面
 async function signInGet(req, res) {
     res.render("signForm", { title: "Sign In" });
 }

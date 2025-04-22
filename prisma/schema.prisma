@@ -24,11 +24,13 @@ model User {
 
 model Session {
   id        String   @id @default(uuid())
-  expires   DateTime
+  sid       String   @unique
+  expiresAt DateTime
   data      String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
 
 model Folder {
   id          Int      @id @default(autoincrement())
@@ -49,7 +51,7 @@ model File {
   name     String
   slug     String   @unique // URL-friendly 唯一名稱
   path     String   @unique
-  filePath  String
+  filePath String
   folderId Int
   folder   Folder   @relation(fields: [folderId], references: [id], onDelete: Cascade)
 }
