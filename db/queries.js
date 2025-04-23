@@ -1,6 +1,9 @@
 const prisma = require("./client");
 
 async function generateUniqueSlug(name, model) {
+    if (!name || typeof name !== "string") {
+        throw new Error("Invalid name: must be a non-empty string");
+    }
     const slug = name.toLowerCase().replace(/\s+/g, "-");
     const existing = await prisma[model].findUnique({ where: { slug } });
     if (existing) {
@@ -133,9 +136,12 @@ async function getFolder(folderId) {
 }
 
 async function getFolderByPath(path) {
+    if (!path || typeof path !== "string") {
+        throw new Error("Invalid path: must be a non-empty string");
+    }
     try {
         return await prisma.folder.findUnique({
-            where: { path: path },
+            where: { path },
         });
     } catch (error) {
         console.error("Error fetching folder by path:", error);
@@ -183,25 +189,25 @@ async function createFolderFile(file) {
     try {
         if (!file.folderId || !file.name || !file.path) {
             throw new Error(
-                "Invalid parameters: folderId, name and path are required"
+                "Invalid parameters: folderId, name, and path are required"
             );
         }
 
-        const slug = generateUniqueSlug(file.name, "file");
+        // 正確生成 slug
+        const slug = await generateUniqueSlug(file.name, "file");
 
-        // 確認檔案的目標資料夾是否有父資料夾（不是根目錄）
         const folder = await prisma.folder.findUnique({
             where: { id: file.folderId },
         });
 
-        if (!folder || folder.parentId === null) {
-            throw new Error("Files can only be created inside subfolders");
+        if (!folder) {
+            throw new Error("Cannot find the folder.");
         }
 
         return await prisma.file.create({
             data: {
                 name: file.name,
-                slug: slug,
+                slug: slug, // 確保是字串
                 path: `${folder.path}/${file.name}`,
                 filePath: file.path,
                 folderId: file.folderId,

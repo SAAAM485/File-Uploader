@@ -6,7 +6,7 @@ const usersController = require("../controllers/usersController");
 router.get("/folders", usersController.getFolderContents); // 處理 /folders 時顯示根目錄
 router.get("/folders/*", usersController.getFolderContents); // 捕捉 /folders/... 的多層路徑
 router.post(
-    "/folders/:folderPath/files",
+    "/folders/*/files",
     parser.single("file"),
     usersController.uploadFile
 );

@@ -40,7 +40,7 @@ model Folder {
   userId      Int
   parentId    Int?     // 父資料夾 ID，根目錄的父資料夾為 null
   user        User     @relation(fields: [userId], references: [id])
-  parent      Folder?  @relation("FolderToSubfolders", fields: [parentId], references: [id]) // 父資料夾
+  parent      Folder?  @relation("FolderToSubfolders", fields: [parentId], references: [id], onDelete: Cascade) // 父資料夾
   subfolders  Folder[] @relation("FolderToSubfolders") // 子資料夾關聯
   files       File[]   // 資料夾內的檔案
 }

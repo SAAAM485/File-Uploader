@@ -3,6 +3,9 @@ const db = require("../db/queries");
 const prisma = require("../db/client");
 const bcrypt = require("bcryptjs");
 const { validationResult } = require("express-validator");
+const fs = require("fs");
+const path = require("path");
+const fetch = require("node-fetch");
 
 /* 
   ──────────────── 使用者與資料夾管理 ────────────────
@@ -43,7 +46,11 @@ async function userFolderPost(req, res) {
 }
 
 async function userFolderDelete(req, res) {
-    const folderId = req.body.folderId;
+    const folderId = parseInt(req.body.folderId, 10);
+    if (isNaN(folderId)) {
+        throw new Error("Invalid folderId: Must be a number");
+    }
+
     try {
         // 先取得該資料夾的資訊
         const folder = await db.getFolder(folderId);
@@ -80,30 +87,37 @@ async function userFolderDelete(req, res) {
 */
 async function uploadFile(req, res) {
     try {
-        // 使用萬用字元路由後，完整多層路徑存放在 req.params[0]
-        const folderPath = req.params[0];
-        const folder = await db.getFolderByPath(folderPath);
+        const folderPath = req.params[0]; // 獲取多層路徑
+        if (!folderPath || typeof folderPath !== "string") {
+            throw new Error("Invalid folder path");
+        }
 
+        // 根據路徑獲取資料夾
+        const folder = await db.getFolderByPath(folderPath);
         if (!folder) {
             return res
                 .status(404)
                 .render("errorPage", { message: "Cannot find the folder." });
         }
 
+        // 檢查是否有上傳的檔案
         if (!req.file) {
             return res.status(400).render("errorPage", {
                 message: "Did not choose the uploading file.",
             });
         }
 
+        // 組合檔案數據
         const fileObj = {
             folderId: folder.id,
             name: req.file.originalname,
             path: req.file.path,
         };
 
+        // 呼叫資料庫函式創建檔案
         await db.createFolderFile(fileObj);
 
+        // 上傳成功後重定向回資料夾
         res.redirect(`/folders/${encodeURIComponent(folder.path)}`);
     } catch (error) {
         console.error("Error uploading the file:", error);
@@ -127,7 +141,6 @@ async function deleteFile(req, res) {
                 .status(404)
                 .render("errorPage", { message: "Cannot find the folder." });
         }
-
         const file = req.body.fileId
             ? await prisma.file.findUnique({ where: { id: req.body.fileId } })
             : req.body.fileName
@@ -210,11 +223,9 @@ async function getFolderContents(req, res) {
 
 async function downloadFile(req, res) {
     try {
-        const fileId = req.params.fileId;
-        if (!fileId) {
-            return res
-                .status(400)
-                .render("errorPage", { message: "Missing file ID." });
+        const fileId = parseInt(req.params.fileId, 10);
+        if (isNaN(fileId)) {
+            throw new Error("Invalid fileId: Must be a number");
         }
 
         const file = await prisma.file.findUnique({
@@ -227,7 +238,38 @@ async function downloadFile(req, res) {
                 .render("errorPage", { message: "File does not exist." });
         }
 
-        return res.redirect(file.filePath);
+        // 暫存檔案位置
+        const tempFilePath = path.join(__dirname, "temp", file.name);
+
+        // 從 Cloudinary 下載檔案並保存到暫存目錄
+        const response = await fetch(file.filePath); // 使用 Node.js 原生的 fetch（v18+）
+        if (!response.ok) {
+            throw new Error("Failed to fetch file from Cloudinary");
+        }
+
+        const fileStream = fs.createWriteStream(tempFilePath);
+        response.body.pipe(fileStream);
+
+        fileStream.on("finish", () => {
+            // 將檔案傳送給使用者
+            res.download(tempFilePath, file.name, (err) => {
+                if (err) {
+                    console.error("Error sending file:", err);
+                    res.status(500).render("errorPage", {
+                        message: "Failed to send file.",
+                    });
+                }
+                // 清理暫存檔案
+                fs.unlink(tempFilePath, (unlinkErr) => {
+                    if (unlinkErr) {
+                        console.error(
+                            "Error cleaning up temp file:",
+                            unlinkErr
+                        );
+                    }
+                });
+            });
+        });
     } catch (error) {
         console.error("Error downloading the file:", error);
         return res
