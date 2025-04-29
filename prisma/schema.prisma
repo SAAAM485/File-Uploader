@@ -19,6 +19,7 @@ model User {
   id       Int      @id @default(autoincrement())
   username String   @unique
   password String
+  sharedTokens SharedToken[]
   folders  Folder[]
 }
 
@@ -31,6 +32,14 @@ model Session {
   updatedAt DateTime @updatedAt
 }
 
+model SharedToken {
+  id        String   @id @default(uuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    Int
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
 
 model Folder {
   id          Int      @id @default(autoincrement())
@@ -44,7 +53,6 @@ model Folder {
   subfolders  Folder[] @relation("FolderToSubfolders") // 子資料夾關聯
   files       File[]   // 資料夾內的檔案
 }
-
 
 model File {
   id       Int      @id @default(autoincrement())

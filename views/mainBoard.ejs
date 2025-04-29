@@ -15,6 +15,16 @@
         <!-- 根目錄頁面 -->
         <h2>My Space</h2>
         <a href="/log-out">Log Out</a>
+        <form action="/share" method="POST">
+            <input type="hidden" name="resourceId" value="<%= user.id %>">
+            <input type="hidden" name="type" value="user">
+            <button type="submit">Generate Share Link</button>
+        </form>
+
+        <% if (shareUrl) { %>
+            <p>Share URL<a href="<%= shareUrl %>" target="_blank"><%= shareUrl %></a></p>
+        <% } %>
+
         <ul>
             <% view.forEach(function(item) { %>
             <li>

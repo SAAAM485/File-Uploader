@@ -176,7 +176,7 @@ async function getFolderContents(req, res) {
                 isAuthenticated: false,
             });
         }
-
+        const shareUrl = req.query.shareUrl || null;
         const userId = req.user.id;
         let folder,
             contents,
@@ -197,8 +197,10 @@ async function getFolderContents(req, res) {
             isRoot = true;
             const folders = await db.getUserFolders(userId);
             return res.render("mainBoard", {
+                user: req.user,
                 view: folders,
                 title: req.user.username,
+                shareUrl: shareUrl || null,
                 isAuthenticated: true,
                 folderPath: "/",
                 isRoot,
